@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>鼎新匯入轉換</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+:root{--bg:#F3F4F8;--surface:#FFFFFF;--border:#E1E4EE;--muted:#8A90A6;--text:#1B1E2D;--accent:#4A5FD4;--accent-h:#3347B8;--soft:#EEF1FF;--danger:#D64545;--danger-bg:#FDEEEE;--success:#1D9E75;--success-bg:#E8F7F1;--warn:#D4921A;--warn-bg:#FFF6E5}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:'Noto Sans TC',system-ui,sans-serif;font-size:14px}
+button,input,select,textarea{font-family:inherit;font-size:inherit}
+.top{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;gap:28px;height:56px;position:sticky;top:0;z-index:5}
+.brand{font-weight:700;letter-spacing:.02em}
+.brand small{color:var(--muted);font-weight:400;margin-left:8px}
+.tabs{display:flex;gap:4px;height:100%}
+.tab{border:0;background:none;padding:0 14px;height:100%;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent}
+.tab.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:500}
+.ver{margin-left:auto;color:var(--muted);font-size:12px}
+.ver i{display:inline-block;width:8px;height:8px;border-radius:50%;background:#ccc;margin-right:6px}
+.ver i.ok{background:var(--success)}.ver i.bad{background:var(--danger)}
+.wrap{max-width:1280px;margin:0 auto;padding:24px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px}
+.drop{border:2px dashed var(--border);border-radius:12px;padding:36px;text-align:center;color:var(--muted);cursor:pointer;transition:.15s}
+.drop.over,.drop:hover{border-color:var(--accent);background:var(--soft);color:var(--accent)}
+.drop b{color:var(--text);font-weight:500}
+.row{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:12px;color:var(--muted)}
+input[type=text],input[type=number],select,textarea{border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:#fff;color:var(--text);outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+.btn{border:1px solid var(--border);background:#fff;border-radius:8px;padding:9px 16px;cursor:pointer;color:var(--text)}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:var(--accent-h)}
+.btn.sm{padding:5px 10px;font-size:13px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.chip{background:var(--soft);color:var(--accent);border-radius:999px;padding:4px 12px;font-size:13px}
+.chip.bad{background:var(--danger-bg);color:var(--danger)}
+.chip.good{background:var(--success-bg);color:var(--success)}
+.issues{border-left:3px solid var(--danger);padding:4px 0 4px 14px;margin-bottom:16px}
+.issue{display:flex;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.issue:last-child{border-bottom:0}
+.issue .tag{background:var(--danger-bg);color:var(--danger);border-radius:6px;padding:2px 8px;font-size:12px}
+.issue .val{font-weight:500}
+.issue .cnt{color:var(--muted);font-size:12px}
+.issue .fix{margin-left:auto;display:flex;gap:6px;align-items:center}
+.issue .fix input{width:90px}.issue .fix select{min-width:160px}
+.tbl{overflow:auto;border:1px solid var(--border);border-radius:10px;max-height:60vh}
+table{border-collapse:collapse;width:100%;white-space:nowrap;font-size:13px}
+th,td{padding:7px 10px;border-bottom:1px solid var(--border);text-align:left}
+th{background:#F7F8FC;position:sticky;top:0;color:var(--muted);font-weight:500;z-index:1}
+tr:hover td{background:#FAFBFF}
+td.bad{background:var(--danger-bg);color:var(--danger)}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 4px}
+.subtabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.subtab{border:1px solid var(--border);background:#fff;border-radius:999px;padding:5px 14px;cursor:pointer;color:var(--muted)}
+.subtab.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.subtab small{opacity:.7;margin-left:4px}
+td input{border:0;background:transparent;width:100%;min-width:60px;padding:2px 0}
+td input:focus{outline:none;border-bottom:1px solid var(--accent)}
+.x{color:var(--muted);cursor:pointer;border:0;background:none;padding:0 6px}
+.x:hover{color:var(--danger)}
+.muted{color:var(--muted)}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--text);color:#fff;padding:10px 18px;border-radius:999px;font-size:13px;opacity:0;transition:.2s;pointer-events:none;z-index:9}
+.toast.show{opacity:1}
+.hide{display:none!important}
+textarea.paste{width:100%;min-height:120px;font-family:ui-monospace,Consolas,monospace;font-size:12px}
+.alias{display:inline-block;background:#F1F2F7;border-radius:6px;padding:1px 7px;margin:1px 3px 1px 0;font-size:12px}
+.alias b{cursor:pointer;margin-left:4px;color:var(--muted)}
+.alias b:hover{color:var(--danger)}
+@media (max-width:720px){.top{padding:0 14px;gap:14px}.wrap{padding:14px}.issue .fix{margin-left:0;width:100%}}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="brand">鼎新匯入轉換<small>VV DOUBLE</small></div>
+  <div class="tabs">
+    <button class="tab on" data-tab="conv">轉檔</button>
+    <button class="tab" data-tab="tables">對照表</button>
+  </div>
+  <div class="ver"><i id="dbdot"></i><span id="dbtxt">連線中</span> · 2026-10-23 16:37</div>
+</div>
+
+<div class="wrap">
+<!-- ===== 轉檔 ===== -->
+<section id="tab-conv">
+  <div class="card">
+    <div class="drop" id="drop"><b>拖入數碼動量匯出檔</b><br>或點選檔案（xlsx / xls / csv）<input type="file" id="file" accept=".xlsx,.xls,.csv" class="hide"></div>
+    <div class="row" style="margin-top:16px">
+      <div class="field"><label>採購人員</label><select id="buyer"></select></div>
+      <div class="field"><label>人民幣匯率</label><input type="number" id="rate" value="5" step="0.1" style="width:90px"></div>
+      <div class="field"><label>品牌</label><input type="text" id="brand" value="VV" style="width:70px"></div>
+      <div class="field"><label>主要庫別</label><input type="text" id="wh" value="B01" style="width:70px"></div>
+      <div class="field"><label>&nbsp;</label><button class="btn primary" id="run" disabled>轉換</button></div>
+      <div class="field muted" id="srcinfo"></div>
+    </div>
+  </div>
+
+  <div class="card hide" id="result">
+    <div class="chips" id="chips"></div>
+    <div class="issues hide" id="issues"></div>
+    <div class="actions">
+      <button class="btn primary" id="dlErp" disabled>下載鼎新匯入檔</button>
+      <button class="btn" id="dlBar">下載條碼對照表</button>
+      <button class="btn" id="cpWx">複製微信通知</button>
+      <span class="muted" id="fname" style="align-self:center"></span>
+    </div>
+    <div class="tbl" id="preview"></div>
+  </div>
+</section>
+
+<!-- ===== 對照表 ===== -->
+<section id="tab-tables" class="hide">
+  <div class="card">
+    <div class="subtabs" id="subtabs"></div>
+    <div class="row" style="margin-bottom:12px">
+      <button class="btn sm" id="addRow">＋ 新增一列</button>
+      <button class="btn sm" id="togglePaste">貼上 Excel 覆蓋</button>
+      <input type="text" id="filter" placeholder="搜尋" style="margin-left:auto;width:200px">
+    </div>
+    <div class="hide" id="pasteBox" style="margin-bottom:12px">
+      <textarea class="paste" id="pasteTa" placeholder="從 Excel 複製整張表（含或不含標題列）貼到這裡"></textarea>
+      <div class="actions"><button class="btn primary sm" id="pasteGo">覆蓋此表</button><button class="btn sm" id="pasteCancel">取消</button></div>
+    </div>
+    <div class="tbl" id="tgrid"></div>
+  </div>
+</section>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===== VV DOUBLE 鼎新匯入轉換核心 ===== */
+const ERP = (() => {
+  // 名稱正規化：去括號內容、空白、全形轉半形、小寫
+  function norm(s) {
+    if (s === null || s === undefined) return '';
+    s = String(s);
+    s = s.replace(/[！-～]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+    s = s.replace(/[（(][^()（）]*[)）]/g, '');
+    s = s.replace(/[\s_\-·．.、,，/／]/g, '');
+    return s.toLowerCase();
+  }
+
+  // 建索引：vendor 支援 aliases
+  function buildIndex(tables) {
+    const idx = {
+      color: new Map(), size: new Map(), vendor: new Map(), midcat: new Map(),
+      category: new Map(), season: new Map(), buyer: new Map(), promo: new Map(), fit: new Map()
+    };
+    const pk = n => norm(n).replace(/組合|\$|nt/g, '');
+    (tables.category || []).forEach(r => {
+      if (r.group === '促銷組合' && r.name != null) { idx.promo.set(norm(r.name), r); idx.promo.set(pk(r.name), r); }
+      if (r.group === '版型' && r.name != null) idx.fit.set(norm(r.name), r);
+    });
+    (tables.midcat || []).forEach(r => { if (r.name != null && /^H/.test(String(r.code))) { if (!idx.promo.has(pk(r.name))) idx.promo.set(pk(r.name), r); } });
+    (tables.color || []).forEach(r => { if (r.name != null) idx.color.set(norm(r.name), r); });
+    (tables.size || []).forEach(r => { if (r.name != null) idx.size.set(norm(r.name), r); });
+    (tables.vendor || []).forEach(r => {
+      if (r.name != null) idx.vendor.set(norm(r.name), r);
+      (r.aliases || []).forEach(a => idx.vendor.set(norm(a), r));
+    });
+    (tables.midcat || []).forEach(r => { if (r.name != null) idx.midcat.set(norm(r.name), r); });
+    (tables.category || []).forEach(r => { if (r.code != null) idx.category.set(String(r.code), r); });
+    (tables.season || []).forEach(r => { if (r.code != null) idx.season.set(String(r.code), r); });
+    (tables.buyer || []).forEach(r => { if (r.code != null) idx.buyer.set(String(r.code), r); });
+    return idx;
+  }
+
+  // 解析數碼動量匯出：找到「產品代號」標題列，取 14 欄，到空白/筆數列為止
+  function parseSource(aoa) {
+    let h = -1;
+    for (let i = 0; i < Math.min(aoa.length, 30); i++) {
+      if (aoa[i] && String(aoa[i][0]).trim() === '產品代號') { h = i; break; }
+    }
+    if (h < 0) throw new Error('找不到「產品代號」標題列');
+    const rows = [];
+    for (let i = h + 1; i < aoa.length; i++) {
+      const r = aoa[i] || [];
+      const code = r[0];
+      if (code === null || code === undefined || code === '') continue;
+      if (typeof code === 'number' || !/^[0-9]{2}[A-Z]{2}[0-9]{4}-/.test(String(code).trim())) continue;
+      rows.push({
+        sku: String(r[0]).trim(), name: r[1] == null ? '' : String(r[1]).trim(),
+        style: r[2] == null ? '' : String(r[2]).trim(), styleName: r[3] == null ? '' : String(r[3]).trim(),
+        spec: r[4], color: r[5] == null ? '' : String(r[5]).trim(), size: r[6] == null ? '' : String(r[6]).trim(),
+        vendorSku: r[7], bigCat: r[8], midCat: r[9] == null ? '' : String(r[9]).trim(), smallCat: r[10],
+        vendor: r[11] == null ? '' : String(r[11]).trim(), cost: num(r[12]), price: num(r[13])
+      });
+    }
+    return rows;
+  }
+
+  function num(v) {
+    if (v === null || v === undefined || v === '') return 0;
+    if (typeof v === 'number') return v;
+    const n = Number(String(v).replace(/[,$\s]/g, ''));
+    return isNaN(n) ? 0 : n;
+  }
+  function toNumIfNumeric(v) {
+    if (typeof v === 'number') return v;
+    if (v === null || v === undefined) return null;
+    const s = String(v).trim();
+    return /^\d+$/.test(s) ? Number(s) : s;
+  }
+  function round0(x) { return Math.round(x); }
+
+  // 標題四列（與鼎新區 sheet 相同）
+  const HEADER = [
+    ['序　　號','1','2','3','4','5','6','7',null,'8',null,null,9,'9','115',null,'10',null,'11',null,'12',null,'13',null,'14',null,'15',null,'16',null,'114',null,'114',null,'114',null,17,67,32,43,44,45,46,100,47,101,51,52,null,null,null,null,null,'季別\n撈英文','季別\n英文轉數字','取前二碼','取後四碼','全數字的\n貨號','上架次序','年度','廠商名稱','廠商代號轉換'],
+    ['欄　　位','品號','品名','款式代號','款式名稱','規格','尺寸組代號','尺寸代號','尺寸名稱','顏色代號','顏色名稱','條碼','貨號','庫存單位','[品號分類一]','[品號分類一]','[品號分類二]','[品號分類二]','[品號分類三]','[品號分類三]','[品號分類四]','[品號分類四]','品號分類五','[品號分類五]','品號分類六','[品號分類六]','品號分類七','[品號分類七]','品號分類八','[品號分類八]','品號分類九','[品號分類九]','品號分類A','[品號分類A]','品號分類B','[品號分類B]','主要庫別','採購人員','主供應商','檢驗方式','超收管理','超收率%','標準進價','標準進價含稅','標準售價','標準售價含稅','零售價','零售價含稅','最近進價含稅','最近進價幣別','最近進價原幣金額','最近進價本幣金額','銷售日期','季別\n撈英文','季別\n英文轉數字','取前二碼','取後四碼','全數字的\n貨號','上架次序','年度','廠商名稱','廠商代號轉換'],
+    ['欄位名稱','MB001','MB002','MB628',null,'MB003',null,null,null,null,null,null,'MB080','MB004','MB005',null,'MB006',null,'MB007',null,'MB008',null,'MB111',null,'MB112',null,'MB113',null,'MB114',null,'MB115',null,'MB115',null,'MB115',null,'MB017','MB067','MB032','MB043','MB044','MB045','MB046','MB100','MB047','MB101','MB051','MB052','MB102','MB048','MB049','MB050','MB655','季別\n撈英文','季別\n英文轉數字','取前二碼','取後四碼','全數字的\n貨號','上架次序','年度','廠商名稱','廠商代號轉換'],
+    ['欄位說明','貨號\n有套公式 (勿調整)','商品名稱(名稱/顏色/尺寸)\n有套公式 (勿調整)','組頭代號','組頭名稱','上架日期','有套公式 \n(勿調整)','有套公式 \n(勿調整)',null,'有套公式 \n(勿調整)',null,'有套公式 \n(勿調整)','廠商貨號','庫存單位\n(不可空白)','會計\n預設為:001','有套公式 \n(勿調整)','品牌\n有下拉式選單','有套公式 \n(勿調整)','年度\n有下拉式選單','有套公式 \n(勿調整)','季節\n有下拉式選單','有套公式 \n(勿調整)','上架次序\n有下拉式選單','有套公式 \n(勿調整)','上身/外套類\n(AD)\n有下拉式選單','有套公式 \n(勿調整)','下身/連身/套裝類\n(BC)\n有下拉式選單','有套公式 \n(勿調整)','配件/鞋類\n(EF)\n有下拉式選單','有套公式 \n(勿調整)','版型\n有下拉式選單','有套公式 \n(勿調整)','促銷組合\n有下拉式選單','有套公式 \n(勿調整)','商品大類\n有下拉式選單','有套公式 \n(勿調整)','請填:B01\n進貨處理區','採購員工代號\n有下拉式選單','廠商代號\n有套公式 (勿調整)','預設為:0\n免檢','[Y]','[0.1]=10%','標準進價\n需特別注意台灣廠商\n中國-人民幣;台灣-台幣','[N]','標準售價','[Y]','零售價\n有套公式 (勿調整)','[Y]','[N]','最近進價\nRMB人民幣\nNTD台幣\n有套公式 (勿調整)','最近進價\n原幣金額\n有套公式 (勿調整)','最近進價(標準成本)\n本國幣別(需特別注意台灣廠商)\n有套公式 (勿調整)','上架日期','季別\n撈英文','季別\n英文轉數字','取前二碼','取後四碼','全數字的\n貨號','上架次序','年度','請自行填入\n廠商名稱','廠商代號轉換\n有套公式 (勿調整)']
+  ];
+
+  /**
+   * 轉換
+   * @param rows parseSource 結果
+   * @param tables 對照表
+   * @param opt { buyer:'A045', rate:5, brand:'VV', warehouse:'B01' }
+   * @returns { out:[[...62欄]], issues:[{row,sku,field,value,msg}] }
+   */
+  function convert(rows, tables, opt) {
+    const idx = buildIndex(tables);
+    const rate = Number(opt.rate) || 5;
+    const buyer = opt.buyer || '';
+    const brand = opt.brand || 'VV';
+    const wh = opt.warehouse || 'B01';
+    const out = [], issues = [];
+    const catName = c => { const r = idx.category.get(String(c)); return r ? r.name : ' '; };
+
+    rows.forEach((s, i) => {
+      const issue = (field, value, msg) => issues.push({ row: i + 1, sku: s.sku, field, value, msg });
+      const style = s.style || s.sku.split('-')[0];
+      const yy = style.slice(0, 2), seasonCode = style.slice(2, 4), tail = style.slice(-4), order = tail.slice(0, 2);
+      const year = Number('20' + yy);
+      const season = idx.season.get(seasonCode);
+      if (!season) issue('季別', seasonCode, '季別代號查無');
+      const seasonNum = season ? String(season.num) : '';
+      const sizeR = idx.size.get(norm(s.size));
+      if (!sizeR) issue('尺寸', s.size, '尺寸查無對照');
+      const colorR = idx.color.get(norm(s.color));
+      if (!colorR) issue('顏色', s.color, '顏色查無對照');
+      const vendorR = idx.vendor.get(norm(s.vendor));
+      if (!vendorR) issue('廠商', s.vendor, '廠商查無對照');
+      const midR = idx.midcat.get(norm(s.midCat));
+      if (!midR) issue('中類', s.midCat, '中類查無對照');
+      const midCode = midR ? String(midR.code) : null;
+      const catR = midCode ? idx.category.get(midCode) : null;
+      if (midCode && !catR) issue('中類', midCode, '品號分類表無此代號');
+      const major = catR ? catR.major : null;
+      if (midCode && !major) issue('商品大類', midCode, '品號分類表缺商品大類');
+      const letter = midCode ? midCode[0] : '';
+      const colAD = /[AD]/.test(letter) ? midCode : null;
+      const colBC = /[BC]/.test(letter) ? midCode : null;
+      const colEF = /[EF]/.test(letter) ? midCode : null;
+      let promoCode = null;
+      const sc = s.smallCat == null ? '' : String(s.smallCat).trim();
+      if (sc) {
+        const pr = idx.promo.get(norm(sc)) || idx.promo.get(norm(sc).replace(/組合|\$|nt/g, ''));
+        if (pr) promoCode = String(pr.code); else issue('小類', sc, '小類（促銷組合）查無對照');
+      }
+      if (!idx.category.get(String(year))) issue('年度', year, '品號分類表無此年度');
+      if (!idx.category.get(order)) issue('上架次序', order, '品號分類表無此上架次序');
+
+      const sizeCode = sizeR ? sizeR.code : null;
+      const sizeCodeStr = sizeR ? String(sizeR.code) : '';
+      const colorCode = colorR ? String(colorR.code) : '';
+      const numCode = yy + seasonNum + tail;
+      const barcode = numCode + colorCode + sizeCodeStr;
+      const sku = `${style}-${colorCode}-${s.size}`;
+      if (sku !== s.sku) issue('品號', s.sku, `重算品號為 ${sku}，與數碼動量不同`);
+
+      const cur = vendorR ? String(vendorR.cur || 'NTD').toUpperCase() : '';
+      const isRMB = cur === 'RMB';
+      const costOrig = isRMB ? round0(s.cost / rate) : round0(s.cost);
+      const costLocal = isRMB ? round0(costOrig * rate) : costOrig;
+      if (isRMB && costOrig > 0 && Math.abs(costLocal - s.cost) > rate / 2) issue('成本', s.cost, `台幣成本 ${s.cost} 不能被匯率 ${rate} 整除，回推為 ${costLocal}`);
+      if (s.cost === 0) issue('成本', 0, '標準成本為 0');
+      if (s.price === 0) issue('零售價', 0, '零售價為 0');
+
+      const spec = toNumIfNumeric(s.spec);
+      const saleDate = spec == null ? null : Number('20' + String(spec));
+
+      out.push([
+        null, sku, `${s.styleName} ${s.color} ${s.size}`, style, s.styleName, spec,
+        sizeR ? sizeR.group : null, sizeCode, s.size, colorCode, s.color, barcode,
+        s.vendorSku == null ? null : s.vendorSku, '件',
+        '001', catName('001'), brand, catName(brand), year, toNumIfNumeric(catName(year)),
+        seasonCode, catName(seasonCode), order, catName(order),
+        colAD, catName(colAD), colBC, catName(colBC), colEF, catName(colEF),
+        null, ' ', promoCode, catName(promoCode), major, catName(major),
+        wh, buyer, vendorR ? vendorR.code : null, '0', 'Y', 0.1,
+        costOrig, 'N', s.price, 'Y', s.price, 'Y', 'N',
+        cur || null, costOrig, costLocal, saleDate,
+        seasonCode, seasonNum, yy, tail, numCode, order, '20' + yy, s.vendor, vendorR ? vendorR.code : null
+      ]);
+    });
+    return { out, issues };
+  }
+
+  // 條碼對照表（給 360 雲盤）
+  function barcodeSheet(rows) {
+    const aoa = [['產品代號', '品名規格', '零售價', '顏色', '尺寸', '顏色&尺寸', '產品代號']];
+    rows.forEach(s => aoa.push([s.sku, s.name, s.price, s.color, s.size, `${s.color}${s.size}`, s.sku]));
+    return aoa;
+  }
+
+  // 微信通知
+  function wechatText(rows, dateStr) {
+    const styles = [];
+    const seen = new Set();
+    rows.forEach(s => { if (!seen.has(s.style)) { seen.add(s.style); styles.push(`${s.style} ${s.styleName}`); } });
+    return `【${dateStr}條碼如下】\n新增-\n${styles.join('\n')}\n\n請再留意，謝謝`;
+  }
+
+  return { norm, parseSource, convert, barcodeSheet, wechatText, HEADER };
+})();
+
+</script>
+<script>
+const DEFAULT_TABLES = {"category":[{"code":"001","name":"成品","group":"會計","major":null},{"code":"002","name":"費用商品(耗材…)","group":"會計","major":null},{"code":"VV","name":"VV DOUBLE","group":"品牌","major":null},{"code":2021,"name":2021,"group":"年度","major":null},{"code":2022,"name":2022,"group":"年度","major":null},{"code":2023,"name":2023,"group":"年度","major":null},{"code":2024,"name":2024,"group":"年度","major":null},{"code":2025,"name":2025,"group":"年度","major":null},{"code":2026,"name":2026,"group":"年度","major":null},{"code":"SP","name":"春天","group":"季節","major":null},{"code":"SU","name":"夏天","group":"季節","major":null},{"code":"AU","name":"秋天","group":"季節","major":null},{"code":"WI","name":"冬天","group":"季節","major":null},{"code":"ST","name":"門市獨賣","group":"季節","major":null},{"code":"CI","name":"寄賣品","group":"季節","major":null},{"code":"01","name":"第一次上架","group":"上架次序","major":null},{"code":"02","name":"第二次上架","group":"上架次序","major":null},{"code":"03","name":"第三次上架","group":"上架次序","major":null},{"code":"04","name":"第四次上架","group":"上架次序","major":null},{"code":"05","name":"第五次上架","group":"上架次序","major":null},{"code":"06","name":"第六次上架","group":"上架次序","major":null},{"code":"07","name":"第七次上架","group":"上架次序","major":null},{"code":"08","name":"第八次上架","group":"上架次序","major":null},{"code":"A001","name":"無袖","group":"上身/外套類","major":"Z001"},{"code":"A002","name":"短袖","group":"上身/外套類","major":"Z001"},{"code":"A003","name":"長袖","group":"上身/外套類","major":"Z001"},{"code":"A004","name":"襯衫","group":"上身/外套類","major":"Z001"},{"code":"A005","name":"針織","group":"上身/外套類","major":"Z001"},{"code":"A006","name":"帽T/大學T","group":"上身/外套類","major":"Z001"},{"code":"A007","name":"內著","group":"上身/外套類","major":"Z001"},{"code":"A008","name":"BRA TOP","group":"上身/外套類","major":"Z004"},{"code":"D001","name":"背心外套","group":"上身/外套類","major":"Z004"},{"code":"D002","name":"罩衫","group":"上身/外套類","major":"Z004"},{"code":"D003","name":"牛仔外套","group":"上身/外套類","major":"Z004"},{"code":"D004","name":"西裝外套","group":"上身/外套類","major":"Z004"},{"code":"D005","name":"針織外套","group":"上身/外套類","major":"Z004"},{"code":"D006","name":"夾克外套","group":"上身/外套類","major":"Z004"},{"code":"D007","name":"鋪棉外套","group":"上身/外套類","major":"Z004"},{"code":"D008","name":"皮革外套","group":"上身/外套類","major":"Z004"},{"code":"D009","name":"風衣外套/長版大衣","group":"上身/外套類","major":"Z002"},{"code":"B001","name":"長褲","group":"下身/連身/套裝類","major":"Z002"},{"code":"B002","name":"短褲","group":"下身/連身/套裝類","major":"Z002"},{"code":"B003","name":"西裝褲","group":"下身/連身/套裝類","major":"Z002"},{"code":"B004","name":"牛仔褲","group":"下身/連身/套裝類","major":"Z002"},{"code":"B005","name":"半身裙","group":"下身/連身/套裝類","major":"Z002"},{"code":"B006","name":"褲裙","group":"下身/連身/套裝類","major":"Z002"},{"code":"B007","name":"短裙","group":"下身/連身/套裝類","major":"Z002"},{"code":"B008","name":"牛仔裙","group":"下身/連身/套裝類","major":"Z003"},{"code":"C001","name":"套裝","group":"下身/連身/套裝類","major":"Z003"},{"code":"C002","name":"洋裝","group":"下身/連身/套裝類","major":"Z003"},{"code":"C003","name":"連身褲","group":"下身/連身/套裝類","major":"Z003"},{"code":"C004","name":"居家衣物","group":"下身/連身/套裝類","major":"Z003"},{"code":"C005","name":"泳衣","group":"下身/連身/套裝類","major":"Z006"},{"code":"E001","name":"皮帶","group":"配件/鞋類","major":"Z006"},{"code":"E002","name":"眼鏡","group":"配件/鞋類","major":"Z006"},{"code":"E003","name":"帽子","group":"配件/鞋類","major":"Z006"},{"code":"E004","name":"飾品","group":"配件/鞋類","major":"Z006"},{"code":"E005","name":"包包","group":"配件/鞋類","major":"Z006"},{"code":"E006","name":"髮飾","group":"配件/鞋類","major":"Z006"},{"code":"E007","name":"襪子","group":"配件/鞋類","major":"Z006"},{"code":"E008","name":"披肩、圍巾、絲巾","group":"配件/鞋類","major":"Z006"},{"code":"E009","name":"贈品/加購品","group":"配件/鞋類","major":"Z006"},{"code":"E010","name":"香氛","group":"配件/鞋類","major":"Z007"},{"code":"E011","name":"保養","group":"配件/鞋類","major":"Z007"},{"code":"E012","name":"美妝","group":"配件/鞋類","major":"Z007"},{"code":"E013","name":"飾品","group":"配件/鞋類","major":"Z007"},{"code":"F001","name":"涼鞋","group":"配件/鞋類","major":"Z005"},{"code":"F002","name":"布鞋","group":"配件/鞋類","major":"Z005"},{"code":"F003","name":"包鞋","group":"配件/鞋類","major":"Z005"},{"code":"F004","name":"短靴","group":"配件/鞋類","major":"Z005"},{"code":"F005","name":"長靴","group":"配件/鞋類","major":"Z005"},{"code":"G001","name":"一般(合身)","group":"版型","major":null},{"code":"G0011","name":"一般(寬鬆)","group":"版型","major":null},{"code":"G002","name":"寬版(合身)","group":"版型","major":null},{"code":"G0021","name":"寬版(寬鬆)","group":"版型","major":null},{"code":"G003","name":"一般","group":"版型","major":null},{"code":"G004","name":"加長","group":"版型","major":null},{"code":"G005","name":"短腿","group":"版型","major":null},{"code":"G006","name":"長腿","group":"版型","major":null},{"code":"G007","name":"短腿-一般","group":"版型","major":null},{"code":"G008","name":"短腿-寬版","group":"版型","major":null},{"code":"G009","name":"普通-一般","group":"版型","major":null},{"code":"G010","name":"普通-寬版","group":"版型","major":null},{"code":"G011","name":"長腿-一般","group":"版型","major":null},{"code":"G012","name":"長腿-寬版","group":"版型","major":null},{"code":"H001","name":"$490組合","group":"促銷組合","major":null},{"code":"H002","name":"$600組合","group":"促銷組合","major":null},{"code":"H003","name":"$700組合","group":"促銷組合","major":null},{"code":"H004","name":"$900組合","group":"促銷組合","major":null},{"code":"H005","name":"$1000組合","group":"促銷組合","major":null},{"code":"H006","name":"$1200組合","group":"促銷組合","major":null},{"code":"H007","name":"$400組合(安全褲)","group":"促銷組合","major":null},{"code":"H008","name":"$500組合(安全褲)","group":"促銷組合","major":null},{"code":"H009","name":"套裝組合","group":"促銷組合","major":null},{"code":"H010","name":"福袋","group":"促銷組合","major":null},{"code":"H011","name":"花車特賣/瑕疵","group":"促銷組合","major":null},{"code":"Z001","name":"上衣類","group":"商品大類","major":null},{"code":"Z002","name":"下身類","group":"商品大類","major":null},{"code":"Z003","name":"洋裝/連身類","group":"商品大類","major":null},{"code":"Z004","name":"外套類","group":"商品大類","major":null},{"code":"Z005","name":"鞋類","group":"商品大類","major":null},{"code":"Z006","name":"配件類","group":"商品大類","major":null},{"code":"Z007","name":"寄賣品","group":"商品大類","major":null},{"code":"Z008","name":"花車特賣/瑕疵","group":"商品大類","major":null}],"season":[{"code":"SP","num":"01"},{"code":"SU","num":"02"},{"code":"AU","num":"03"},{"code":"WI","num":"04"},{"code":"ST","num":"05"}],"color":[{"name":"F","code":"010"},{"name":"條紋","code":"011"},{"name":"豹紋","code":"012"},{"name":"黑白格","code":"013"},{"name":"櫻桃","code":"014"},{"name":"檸檬","code":"015"},{"name":"白色","code":"020"},{"name":"米白","code":"021"},{"name":"黑色","code":"030"},{"name":"灰黑","code":"031"},{"name":"墨黑色","code":"032"},{"name":"灰色","code":"040"},{"name":"淺灰","code":"041"},{"name":"深灰","code":"042"},{"name":"灰白","code":"043"},{"name":"灰棕","code":"044"},{"name":"珍珠灰","code":"045"},{"name":"花灰","code":"046"},{"name":"杏色","code":"050"},{"name":"米杏","code":"051"},{"name":"淺杏","code":"052"},{"name":"深杏","code":"053"},{"name":"灰杏","code":"054"},{"name":"燕麥","code":"055"},{"name":"膚色","code":"056"},{"name":"米色","code":"057"},{"name":"卡其","code":"060"},{"name":"淺卡","code":"061"},{"name":"深卡","code":"062"},{"name":"奶茶","code":"063"},{"name":"米卡其","code":"064"},{"name":"灰卡其","code":"065"},{"name":"咖色","code":"070"},{"name":"灰咖","code":"071"},{"name":"淺咖啡","code":"072"},{"name":"深咖","code":"073"},{"name":"棕色","code":"074"},{"name":"駝色","code":"075"},{"name":"可可","code":"076"},{"name":"咖啡","code":"077"},{"name":"藍色","code":"080"},{"name":"淺藍","code":"081"},{"name":"深藍","code":"082"},{"name":"灰藍","code":"083"},{"name":"天藍","code":"084"},{"name":"寶藍","code":"085"},{"name":"藏青","code":"086"},{"name":"淺灰藍","code":"087"},{"name":"霧灰藍","code":"088"},{"name":"綠色","code":"090"},{"name":"淺綠","code":"091"},{"name":"深綠","code":"092"},{"name":"軍綠","code":"093"},{"name":"灰綠","code":"094"},{"name":"霧綠","code":"095"},{"name":"黃綠","code":"096"},{"name":"霧薄荷","code":"097"},{"name":"墨綠","code":"098"},{"name":"粉色","code":"100"},{"name":"粉杏","code":"101"},{"name":"淺粉","code":"102"},{"name":"深粉","code":"103"},{"name":"粉橘","code":"104"},{"name":"玫瑰粉","code":"105"},{"name":"桃紅","code":"106"},{"name":"紫色","code":"110"},{"name":"淺紫","code":"111"},{"name":"深紫","code":"112"},{"name":"粉紫","code":"113"},{"name":"灰紫","code":"114"},{"name":"薰衣草紫","code":"115"},{"name":"霧紫","code":"116"},{"name":"紅色","code":"120"},{"name":"橘色","code":"121"},{"name":"橘紅","code":"122"},{"name":"豆沙","code":"123"},{"name":"紅棕","code":"124"},{"name":"磚紅","code":"125"},{"name":"酒紅","code":126},{"name":"黃色","code":"130"},{"name":"薑黃","code":"131"},{"name":"金屬色","code":"140"},{"name":"金色","code":"141"},{"name":"銀色","code":"142"},{"name":"銀白","code":"143"}],"size":[{"name":"F","code":"01","group":"A01"},{"name":"C","code":"02","group":"A01"},{"name":"D","code":"03","group":"A01"},{"name":"E","code":"04","group":"A01"},{"name":"XS","code":10,"group":"B01"},{"name":"S","code":11,"group":"B01"},{"name":"XSS","code":12,"group":"B01"},{"name":"M","code":13,"group":"B01"},{"name":"ML","code":14,"group":"B01"},{"name":"L","code":15,"group":"B01"},{"name":"XL","code":16,"group":"B01"},{"name":"XL2L","code":17,"group":"B01"},{"name":"2L","code":18,"group":"B01"},{"name":"3L","code":19,"group":"B01"},{"name":"3L4L","code":20,"group":"B01"},{"name":"4L","code":21,"group":"B01"},{"name":"5L","code":22,"group":"B01"},{"name":"5L6L","code":23,"group":"B01"},{"name":"6L","code":24,"group":"B01"},{"name":"7L8L","code":26,"group":"B01"},{"name":36,"code":36,"group":"C01"},{"name":37,"code":37,"group":"C01"},{"name":38,"code":38,"group":"C01"},{"name":39,"code":39,"group":"C01"},{"name":40,"code":40,"group":"C01"},{"name":41,"code":41,"group":"C01"},{"name":42,"code":42,"group":"C01"},{"name":43,"code":43,"group":"C01"},{"name":44,"code":44,"group":"C01"},{"name":45,"code":45,"group":"C01"},{"name":46,"code":46,"group":"C01"},{"name":47,"code":47,"group":"C01"},{"name":35,"code":35,"group":"C01"}],"vendor":[{"name":"星連","code":"A000","cur":"NTD","aliases":[]},{"name":"鴻海","code":"A001","cur":"NTD","aliases":[]},{"name":"順豐","code":"A002","cur":"NTD","aliases":[]},{"name":"任任快遞","code":"A003","cur":"NTD","aliases":[]},{"name":"鼎新數智","code":"A004","cur":"NTD","aliases":[]},{"name":"凱苼","code":"A005","cur":"NTD","aliases":[]},{"name":"PANDA","code":"A101","cur":"RMB","aliases":[]},{"name":"曼羽信","code":"A102","cur":"RMB","aliases":[]},{"name":"雅香","code":"A103","cur":"RMB","aliases":[]},{"name":"境兒家","code":"A104","cur":"RMB","aliases":[]},{"name":"藍欣奧","code":"A105","cur":"RMB","aliases":[]},{"name":"明道","code":"A106","cur":"RMB","aliases":[]},{"name":"佳期","code":"A107","cur":"RMB","aliases":[]},{"name":"小旭家","code":"A108","cur":"RMB","aliases":[]},{"name":"优艺箱包","code":"A109","cur":"RMB","aliases":[]},{"name":"自然色牛仔","code":"A110","cur":"RMB","aliases":[]},{"name":"芊語","code":"A111","cur":"RMB","aliases":[]},{"name":"廣州夢琪","code":"A112","cur":"RMB","aliases":[]},{"name":"慶","code":"A113","cur":"RMB","aliases":[]},{"name":"愷豐","code":"A114","cur":"RMB","aliases":[]},{"name":"Orange","code":"A115","cur":"RMB","aliases":[]},{"name":"明順","code":"A116","cur":"RMB","aliases":[]},{"name":"美高美保溫杯","code":"A117","cur":"RMB","aliases":[]},{"name":"老余","code":"A118","cur":"RMB","aliases":[]},{"name":"万姿女神","code":"A201","cur":"RMB","aliases":[]},{"name":"大七","code":"A202","cur":"RMB","aliases":[]},{"name":"焦點大碼","code":"A203","cur":"RMB","aliases":[]},{"name":"娜美","code":"A204","cur":"RMB","aliases":[]},{"name":"小樹屋","code":"A205","cur":"RMB","aliases":[]},{"name":"亥米","code":"A206","cur":"RMB","aliases":[]},{"name":"東姿鞋業","code":"A207","cur":"RMB","aliases":[]},{"name":"原創基地","code":"A208","cur":"RMB","aliases":[]},{"name":"1688","code":"A209","cur":"RMB","aliases":[]},{"name":"TAOBAO","code":"A210","cur":"RMB","aliases":[]},{"name":"台州羽戈","code":"A211","cur":"RMB","aliases":[]},{"name":"創新帽業","code":"A212","cur":"RMB","aliases":[]},{"name":"UP Studio","code":"A213","cur":"RMB","aliases":[]},{"name":"US家包包","code":"A214","cur":"RMB","aliases":[]},{"name":"UU飾品","code":"A215","cur":"RMB","aliases":[]},{"name":"TFTF包包","code":"A216","cur":"RMB","aliases":[]},{"name":"鞋材店","code":"A217","cur":"RMB","aliases":[]},{"name":"昊萌五金","code":"A218","cur":"RMB","aliases":[]},{"name":"天橋五金","code":"A219","cur":"RMB","aliases":[]},{"name":"大小姐","code":"A220","cur":"RMB","aliases":[]},{"name":"女王","code":"A221","cur":"RMB","aliases":[]},{"name":"小米粒","code":"A222","cur":"RMB","aliases":[]},{"name":"木熙","code":"A223","cur":"RMB","aliases":[]},{"name":"伊可鑫","code":"A224","cur":"RMB","aliases":[]},{"name":"波萝蜜","code":"A225","cur":"RMB","aliases":[]},{"name":"青青草","code":"A226","cur":"RMB","aliases":[]},{"name":"莫思","code":"A227","cur":"RMB","aliases":[]},{"name":"麥希","code":"A228","cur":"RMB","aliases":[]},{"name":"嵐心","code":"A229","cur":"RMB","aliases":[]},{"name":"愛慕IM","code":"A230","cur":"RMB","aliases":[]},{"name":"瑞衣","code":"A231","cur":"RMB","aliases":[]},{"name":"義烏每足","code":"A232","cur":"RMB","aliases":[]},{"name":"夢瑤飾品","code":"A233","cur":"RMB","aliases":[]},{"name":"璇优","code":"A234","cur":"RMB","aliases":[]},{"name":"鎧祺","code":"A235","cur":"RMB","aliases":[]},{"name":"AJ STUDIO","code":"A236","cur":"RMB","aliases":[]},{"name":"E.S","code":"A237","cur":"RMB","aliases":[]},{"name":"FUS南城","code":"A238","cur":"RMB","aliases":[]},{"name":"Ocean star","code":"A239","cur":"RMB","aliases":[]},{"name":"大豐之典","code":"A240","cur":"RMB","aliases":[]},{"name":"米果","code":"A241","cur":"RMB","aliases":[]},{"name":"美美家","code":"A242","cur":"RMB","aliases":[]},{"name":"彩虹","code":"A243","cur":"RMB","aliases":[]},{"name":"燦華","code":"A244","cur":"RMB","aliases":[]},{"name":"AA蘭姐","code":"A245","cur":"RMB","aliases":[]},{"name":"Di茗","code":"A246","cur":"RMB","aliases":[]},{"name":"G.S南城","code":"A247","cur":"RMB","aliases":[]},{"name":"La belle","code":"A248","cur":"RMB","aliases":[]},{"name":"LA.baby","code":"A249","cur":"RMB","aliases":[]},{"name":"MORNING","code":"A250","cur":"RMB","aliases":[]},{"name":"萬佳ZHUZHU","code":"A251","cur":"RMB","aliases":[]},{"name":"Mint","code":"A252","cur":"RMB","aliases":[]},{"name":"創新基地","code":"A253","cur":"RMB","aliases":[]},{"name":"秀秀家","code":"A254","cur":"RMB","aliases":[]},{"name":"興旺衣舍","code":"A255","cur":"RMB","aliases":[]},{"name":"新根宇","code":"A256","cur":"RMB","aliases":[]},{"name":"WE","code":"A257","cur":"RMB","aliases":[]},{"name":"U谷","code":"A258","cur":"RMB","aliases":[]},{"name":"江南手袋","code":"A259","cur":"RMB","aliases":[]},{"name":"WU家","code":"A261","cur":"RMB","aliases":[]},{"name":"俏伊坊","code":"A262","cur":"RMB","aliases":[]},{"name":"FSD","code":"A263","cur":"RMB","aliases":[]},{"name":"帽窩","code":"A264","cur":"RMB","aliases":[]},{"name":"小惡魔","code":"A265","cur":"RMB","aliases":[]},{"name":"E+6","code":"A266","cur":"RMB","aliases":[]},{"name":"麥麥家","code":"A267","cur":"RMB","aliases":[]},{"name":"韓衣坊","code":"A268","cur":"RMB","aliases":[]},{"name":"FLOWER","code":"A269","cur":"RMB","aliases":[]},{"name":"LABABY","code":"A270","cur":"RMB","aliases":[]},{"name":"色色家","code":"A271","cur":"RMB","aliases":[]},{"name":"慕拉","code":"A272","cur":"RMB","aliases":[]},{"name":"森米","code":"A273","cur":"RMB","aliases":[]},{"name":"蓮華","code":"A274","cur":"RMB","aliases":[]},{"name":"芒果","code":"A275","cur":"RMB","aliases":[]},{"name":"如霞","code":"A276","cur":"RMB","aliases":[]},{"name":"苗苗家","code":"A277","cur":"RMB","aliases":[]},{"name":"秋熙家","code":"A278","cur":"RMB","aliases":[]},{"name":"MIMI","code":"A279","cur":"RMB","aliases":[]},{"name":"辣辣家","code":"A280","cur":"RMB","aliases":[]},{"name":"T9","code":"A281","cur":"RMB","aliases":[]},{"name":"girlpro","code":"A282","cur":"RMB","aliases":[]},{"name":"藍精靈","code":"A283","cur":"RMB","aliases":[]},{"name":"MY褲","code":"A284","cur":"RMB","aliases":[]},{"name":"語藝霏","code":"A285","cur":"RMB","aliases":[]},{"name":"泓汐","code":"A286","cur":"RMB","aliases":[]},{"name":"米雪","code":"A287","cur":"RMB","aliases":[]},{"name":"西柚","code":"A288","cur":"RMB","aliases":[]},{"name":"蕾盟朵","code":"A289","cur":"RMB","aliases":[]},{"name":"參參大碼","code":"A290","cur":"RMB","aliases":[]},{"name":"韓熙","code":"A294","cur":"RMB","aliases":[]},{"name":"丹丹","code":"A295","cur":"RMB","aliases":[]},{"name":"衣坊","code":"A296","cur":"RMB","aliases":[]},{"name":"小梨渦","code":"A297","cur":"RMB","aliases":[]},{"name":"YCnana","code":"A298","cur":"RMB","aliases":[]},{"name":"可樂小姐","code":"A299","cur":"RMB","aliases":[]},{"name":"Duomi","code":"A300","cur":"RMB","aliases":[]},{"name":"L+","code":"A301","cur":"RMB","aliases":[]},{"name":"一檸","code":"A302","cur":"RMB","aliases":[]},{"name":"莫拉達","code":"A303","cur":"RMB","aliases":[]},{"name":"董小姐","code":"A304","cur":"RMB","aliases":[]},{"name":"愛望","code":"A305","cur":"RMB","aliases":[]},{"name":"For you","code":"A306","cur":"RMB","aliases":[]},{"name":"果果家","code":"A307","cur":"RMB","aliases":[]},{"name":"卓曦","code":"A308","cur":"RMB","aliases":[]},{"name":"米樂","code":"A309","cur":"RMB","aliases":[]},{"name":"江伊坊","code":"A310","cur":"RMB","aliases":[]},{"name":"小燕家","code":"A311","cur":"RMB","aliases":[]},{"name":"氣泡軟糖","code":"A312","cur":"RMB","aliases":[]},{"name":"米妞","code":"A313","cur":"RMB","aliases":[]},{"name":"一富","code":"A314","cur":"RMB","aliases":[]},{"name":"小虎牙","code":"A315","cur":"RMB","aliases":[]},{"name":"任任快遞","code":"B100","cur":"NTD","aliases":[]},{"name":"萬豐","code":"B101","cur":"NTD","aliases":[]},{"name":"宇晟","code":"B102","cur":"NTD","aliases":[]},{"name":"捷新","code":"B103","cur":"NTD","aliases":[]},{"name":"3606明麗","code":"B201","cur":"NTD","aliases":[]},{"name":"巧朵","code":"B202","cur":"NTD","aliases":[]},{"name":"泡芙","code":"B203","cur":"NTD","aliases":[]},{"name":"唯依","code":"B204","cur":"NTD","aliases":[]},{"name":"錸美","code":"B205","cur":"NTD","aliases":[]},{"name":"mmplus","code":"B206","cur":"NTD","aliases":[]},{"name":"XXS","code":"B207","cur":"NTD","aliases":[]},{"name":"紅蘋果","code":"B208","cur":"NTD","aliases":[]},{"name":"charmmi","code":"B209","cur":"NTD","aliases":[]},{"name":"CHUU CHUU","code":"B210","cur":"NTD","aliases":[]},{"name":"SENSEN","code":"B211","cur":"NTD","aliases":[]},{"name":"Take a Snooze","code":"C001","cur":"NTD","aliases":[]},{"name":"ARTiS di Voce","code":"C002","cur":"NTD","aliases":[]},{"name":"Oring Studio","code":"C003","cur":"NTD","aliases":[]},{"name":"米豆","code":"C004","cur":"NTD","aliases":[]},{"name":"バブライズ","code":"C005","cur":"NTD","aliases":[]},{"name":"WABOO","code":"C006","cur":"NTD","aliases":[]},{"name":"Yuyu_satellite","code":"C007","cur":"NTD","aliases":[]},{"name":"Aquiver","code":"C008","cur":"NTD","aliases":[]},{"name":"吐司動物園","code":"C009","cur":"NTD","aliases":[]},{"name":"98分飾品","code":"C010","cur":"NTD","aliases":[]},{"name":"Radio 0:00","code":"C011","cur":"NTD","aliases":[]},{"name":"上喜","code":"A316","cur":"RMB","aliases":[]},{"name":"久禾","code":"A317","cur":"RMB","aliases":[]},{"name":"橙子家","code":"A318","cur":"RMB","aliases":[]},{"name":"鹿可鹿","code":"A319","cur":"RMB","aliases":[]},{"name":"We","code":"A320","cur":"RMB","aliases":[]},{"name":"藍與白","code":"A321","cur":"RMB","aliases":[]},{"name":"米拉內衣","code":"A322","cur":"RMB","aliases":[]},{"name":"潮九九","code":"A323","cur":"RMB","aliases":[]},{"name":"今囍","code":"A324","cur":"RMB","aliases":[]},{"name":"米鹿","code":"A325","cur":"RMB","aliases":[]},{"name":"廣州雅錦","code":"A119","cur":"RMB","aliases":[]},{"name":"U卡","code":"A326","cur":"RMB","aliases":[]},{"name":"人人愛","code":"A327","cur":"RMB","aliases":[]},{"name":"3mm","code":"A328","cur":"RMB","aliases":[]},{"name":"几布見川","code":"A329","cur":"RMB","aliases":[]},{"name":"秀依","code":"A330","cur":"RMB","aliases":[]},{"name":"雨澤","code":"A331","cur":"RMB","aliases":[]}],"buyer":[{"code":"A021","name":"郭亦芸"},{"code":"A088","name":"呂家瑗"},{"code":"A090","name":"朱庭萱"}],"midcat":[{"name":"無袖","code":"A001"},{"name":"短袖","code":"A002"},{"name":"長袖","code":"A003"},{"name":"襯衫","code":"A004"},{"name":"針織","code":"A005"},{"name":"帽T/大學T","code":"A006"},{"name":"內著","code":"A007"},{"name":"BRA TOP","code":"A008"},{"name":"背心外套","code":"D001"},{"name":"罩衫","code":"D002"},{"name":"牛仔外套","code":"D003"},{"name":"西裝外套","code":"D004"},{"name":"針織外套","code":"D005"},{"name":"夾克外套","code":"D006"},{"name":"鋪棉外套","code":"D007"},{"name":"皮革外套","code":"D008"},{"name":"風衣外套/長版大衣","code":"D009"},{"name":"長褲","code":"B001"},{"name":"短褲","code":"B002"},{"name":"西裝褲","code":"B003"},{"name":"牛仔褲","code":"B004"},{"name":"半身裙","code":"B005"},{"name":"褲裙","code":"B006"},{"name":"短裙","code":"B007"},{"name":"牛仔裙","code":"B008"},{"name":"套裝","code":"C001"},{"name":"洋裝","code":"C002"},{"name":"連身褲","code":"C003"},{"name":"居家衣物","code":"C004"},{"name":"泳衣","code":"C005"},{"name":"皮帶","code":"E001"},{"name":"眼鏡","code":"E002"},{"name":"帽子","code":"E003"},{"name":"飾品","code":"E004"},{"name":"包包","code":"E005"},{"name":"髮飾","code":"E006"},{"name":"襪子","code":"E007"},{"name":"披肩、圍巾、絲巾","code":"E008"},{"name":"贈品/加購品","code":"E009"},{"name":"涼鞋","code":"F001"},{"name":"布鞋","code":"F002"},{"name":"包鞋","code":"F003"},{"name":"短靴","code":"F004"},{"name":"長靴","code":"F005"},{"name":490,"code":"H001"},{"name":600,"code":"H002"},{"name":700,"code":"H003"},{"name":900,"code":"H004"},{"name":1000,"code":"H005"},{"name":1200,"code":"H006"},{"name":400,"code":"H007"},{"name":500,"code":"H008"},{"name":"套裝","code":"H009"},{"name":"香氛","code":"E010"},{"name":"保養","code":"E011"},{"name":"美妝","code":"E012"},{"name":"飾品","code":"E013"}]};
+const BUILD = '2026-10-23 16:37';
+</script>
+<script>
+/* ===== Firebase ===== */
+const firebaseConfig = {
+  apiKey: "AIzaSyAcdAzwAi65EUnmXAlnnNdL53bNWsjEwZQ",
+  authDomain: "vvdouble-purchase.firebaseapp.com",
+  databaseURL: "https://vvdouble-purchase-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "vvdouble-purchase",
+  storageBucket: "vvdouble-purchase.firebasestorage.app",
+  messagingSenderId: "29856167196",
+  appId: "1:29856167196:web:b5d2f3c624acae226276d9"
+};
+let REF = null;
+try { firebase.initializeApp(firebaseConfig); REF = firebase.database().ref('erp/tables'); } catch (e) { REF = null; }
+
+const TABLE_DEFS = {
+  vendor:   { label: '廠商',     cols: [['name','廠商名稱'],['code','鼎新代號'],['cur','幣別'],['aliases','別名']] },
+  color:    { label: '顏色',     cols: [['name','顏色名稱'],['code','代號']] },
+  size:     { label: '尺寸',     cols: [['name','尺寸名稱'],['code','代號'],['group','尺寸組']] },
+  midcat:   { label: '中類',     cols: [['name','中類名稱'],['code','代號']] },
+  category: { label: '品號分類', cols: [['code','代號'],['name','名稱'],['group','群組'],['major','商品大類']] },
+  season:   { label: '季別',     cols: [['code','代號'],['num','數字']] },
+  buyer:    { label: '採購人員', cols: [['code','代號'],['name','姓名']] },
+};
+let tables = null, curTable = 'vendor';
+let srcRows = null, result = null, srcName = '';
+
+const $ = s => document.querySelector(s);
+const toast = m => { const t = $('#toast'); t.textContent = m; t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 2200); };
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function setDb(ok, txt) { $('#dbdot').className = ok ? 'ok' : 'bad'; $('#dbtxt').textContent = txt; }
+
+function useDefaults(txt) { if (tables) return; tables = JSON.parse(JSON.stringify(DEFAULT_TABLES)); setDb(false, txt); renderBuyers(); renderGrid(); if (srcRows) runConvert(); }
+if (!REF) useDefaults('離線，使用內建對照表');
+else setTimeout(() => useDefaults('連線逾時，使用內建對照表'), 8000);
+if (REF) REF.on('value', snap => {
+  const v = snap.val();
+  if (!v || !v.vendor) {
+    tables = JSON.parse(JSON.stringify(DEFAULT_TABLES));
+    REF.set(tables).then(() => setDb(true, '已初始化對照表')).catch(e => setDb(false, '無法寫入'));
+  } else {
+    tables = {};
+    Object.keys(TABLE_DEFS).forEach(k => tables[k] = Array.isArray(v[k]) ? v[k].filter(Boolean) : Object.values(v[k] || {}));
+    setDb(true, '對照表已同步');
+  }
+  renderBuyers(); renderGrid();
+  if (srcRows) runConvert();
+}, err => useDefaults('連線失敗，使用內建對照表'));
+
+function saveTables(msg) {
+  renderGrid(); if (srcRows) runConvert();
+  if (!REF) { toast('離線：變更只在本次有效'); return; }
+  REF.set(tables).then(() => toast(msg || '已儲存')).catch(() => toast('儲存失敗'));
+}
+
+/* ===== Tabs ===== */
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === b));
+  $('#tab-conv').classList.toggle('hide', b.dataset.tab !== 'conv');
+  $('#tab-tables').classList.toggle('hide', b.dataset.tab !== 'tables');
+});
+
+/* ===== 檔案載入 ===== */
+const drop = $('#drop'), fileIn = $('#file');
+drop.onclick = () => fileIn.click();
+drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave = () => drop.classList.remove('over');
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); };
+fileIn.onchange = () => { if (fileIn.files[0]) loadFile(fileIn.files[0]); fileIn.value = ''; };
+
+function loadFile(f) {
+  const rd = new FileReader();
+  rd.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array', codepage: 950 });
+      let rows = null, used = '';
+      for (const n of wb.SheetNames) {
+        const aoa = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, defval: null, raw: true });
+        try { const r = ERP.parseSource(aoa); if (r.length) { rows = r; used = n; break; } } catch (_) {}
+      }
+      if (!rows) throw new Error('找不到「產品代號」欄位');
+      srcRows = rows; srcName = f.name;
+      const styles = new Set(rows.map(r => r.style)).size;
+      $('#srcinfo').textContent = `${f.name} · ${used} · ${rows.length} 筆 / ${styles} 款`;
+      $('#run').disabled = false;
+      runConvert();
+    } catch (err) { toast(err.message); }
+  };
+  rd.readAsArrayBuffer(f);
+}
+
+function renderBuyers() {
+  const sel = $('#buyer'), cur = sel.value;
+  sel.innerHTML = (tables.buyer || []).map(b => `<option value="${esc(b.code)}">${esc(b.code)} ${esc(b.name)}</option>`).join('');
+  if (cur && [...sel.options].some(o => o.value === cur)) sel.value = cur;
+}
+
+/* ===== 轉換 ===== */
+$('#run').onclick = runConvert;
+['#buyer', '#rate', '#brand', '#wh'].forEach(s => $(s).onchange = () => srcRows && runConvert());
+
+function runConvert() {
+  if (!srcRows || !tables) return;
+  result = ERP.convert(srcRows, tables, { buyer: $('#buyer').value, rate: $('#rate').value, brand: $('#brand').value, warehouse: $('#wh').value });
+  $('#result').classList.remove('hide');
+  const styles = new Set(srcRows.map(r => r.style)).size;
+  const bad = result.issues.length;
+  const dateStr = specDate();
+  $('#chips').innerHTML = `<span class="chip">${srcRows.length} 筆</span><span class="chip">${styles} 款</span><span class="chip">上架 ${esc(dateStr || '—')}</span>` +
+    (bad ? `<span class="chip bad">${bad} 個問題</span>` : `<span class="chip good">檢查通過</span>`);
+  renderIssues();
+  renderPreview();
+  const blocking = result.issues.some(i => ['廠商', '顏色', '尺寸', '中類', '季別'].includes(i.field));
+  $('#dlErp').disabled = blocking;
+  $('#fname').textContent = `鼎新品號匯入_${dateStr || 'xxxxxx'}.xlsx`;
+}
+
+function specDate() {
+  const s = srcRows && srcRows.find(r => r.spec != null);
+  return s ? String(s.spec) : '';
+}
+
+function renderIssues() {
+  const box = $('#issues');
+  if (!result.issues.length) { box.classList.add('hide'); box.innerHTML = ''; return; }
+  box.classList.remove('hide');
+  // group by field+value
+  const g = new Map();
+  result.issues.forEach(i => { const k = i.field + '|' + i.value; if (!g.has(k)) g.set(k, { ...i, n: 0, skus: [] }); const o = g.get(k); o.n++; o.skus.push(i.sku); });
+  box.innerHTML = [...g.values()].map((o, k) => {
+    let fix = '';
+    if (o.field === '廠商') {
+      const opts = (tables.vendor || []).slice().sort((a, b) => String(a.name).localeCompare(String(b.name), 'zh-Hant')).map(v => `<option value="${esc(v.code)}">${esc(v.name)} ${esc(v.code)} ${esc(v.cur)}</option>`).join('');
+      fix = `<div class="fix"><select data-k="${k}"><option value="">對應到鼎新廠商…</option>${opts}</select><button class="btn sm" data-alias="${k}">設為別名</button><span class="muted">或</span><input type="text" placeholder="新代號" data-newcode="${k}"><select data-newcur="${k}"><option>RMB</option><option>NTD</option></select><button class="btn sm" data-newvendor="${k}">新增廠商</button></div>`;
+    } else if (o.field === '顏色') {
+      fix = `<div class="fix"><input type="text" placeholder="代號 例 050" data-code="${k}"><button class="btn sm" data-add="color" data-k="${k}">新增顏色</button></div>`;
+    } else if (o.field === '尺寸') {
+      fix = `<div class="fix"><input type="text" placeholder="代號" data-code="${k}"><input type="text" placeholder="尺寸組 例 B01" data-group="${k}"><button class="btn sm" data-add="size" data-k="${k}">新增尺寸</button></div>`;
+    } else if (o.field === '中類') {
+      const opts = (tables.category || []).filter(c => /類$/.test(String(c.group || ''))).map(c => `<option value="${esc(c.code)}">${esc(c.code)} ${esc(c.name)}</option>`).join('');
+      fix = `<div class="fix"><select data-code="${k}"><option value="">對應到分類…</option>${opts}</select><button class="btn sm" data-add="midcat" data-k="${k}">新增中類</button></div>`;
+    } else if (o.field === '小類') {
+      const opts = (tables.category || []).filter(c => c.group === '促銷組合').map(c => `<option value="${esc(c.code)}">${esc(c.code)} ${esc(c.name)}</option>`).join('');
+      fix = `<div class="fix"><select data-code="${k}"><option value="">對應到促銷組合…</option>${opts}</select><button class="btn sm" data-add="midcat" data-k="${k}">新增對照</button></div>`;
+    }
+    return `<div class="issue" data-row="${k}"><span class="tag">${esc(o.field)}</span><span class="val">${esc(o.value)}</span><span class="muted">${esc(o.msg)}</span><span class="cnt">${o.n} 筆</span>${fix}</div>`;
+  }).join('');
+  const groups = [...g.values()];
+  box.querySelectorAll('[data-alias]').forEach(b => b.onclick = () => {
+    const o = groups[b.dataset.alias]; const code = box.querySelector(`select[data-k="${b.dataset.alias}"]`).value;
+    if (!code) return toast('先選鼎新廠商');
+    const v = tables.vendor.find(x => String(x.code) === code); if (!v) return;
+    v.aliases = v.aliases || []; if (!v.aliases.includes(o.value)) v.aliases.push(o.value);
+    saveTables(`「${o.value}」已設為 ${v.name} 的別名`);
+  });
+  box.querySelectorAll('[data-newvendor]').forEach(b => b.onclick = () => {
+    const k = b.dataset.newvendor, o = groups[k];
+    const code = box.querySelector(`[data-newcode="${k}"]`).value.trim(), cur = box.querySelector(`[data-newcur="${k}"]`).value;
+    if (!code) return toast('填鼎新代號');
+    tables.vendor.push({ name: o.value, code, cur, aliases: [] });
+    saveTables(`已新增廠商 ${o.value} ${code}`);
+  });
+  box.querySelectorAll('[data-add]').forEach(b => b.onclick = () => {
+    const k = b.dataset.k, o = groups[k], t = b.dataset.add;
+    const code = box.querySelector(`[data-code="${k}"]`).value.trim();
+    if (!code) return toast('填代號');
+    if (t === 'color') tables.color.push({ name: o.value, code });
+    if (t === 'size') tables.size.push({ name: o.value, code: /^\d+$/.test(code) && code.length < 2 ? code : (/^\d+$/.test(code) && !code.startsWith('0') ? Number(code) : code), group: box.querySelector(`[data-group="${k}"]`).value.trim() });
+    if (t === 'midcat') tables.midcat.push({ name: o.value, code });
+    saveTables('已新增對照');
+  });
+}
+
+const PREVIEW_COLS = [1, 2, 5, 7, 9, 11, 12, 18, 20, 22, 24, 26, 28, 32, 34, 37, 38, 42, 44, 49, 51];
+const PREVIEW_LABEL = { 18: '年度', 20: '季節', 22: '上架次序', 24: '上身/外套', 26: '下身/連身', 28: '配件/鞋', 32: '促銷組合', 34: '商品大類', 49: '幣別', 51: '本幣成本' };
+function renderPreview() {
+  const hdr = ERP.HEADER[1];
+  const issueSkus = new Map(); result.issues.forEach(i => { if (!issueSkus.has(i.sku)) issueSkus.set(i.sku, new Set()); issueSkus.get(i.sku).add(i.field); });
+  const fieldCol = { '廠商': [38], '顏色': [9], '尺寸': [7], '中類': [24, 26, 28], '小類': [32], '成本': [42, 51], '零售價': [44], '季別': [20], '品號': [1], '商品大類': [34], '年度': [18], '上架次序': [22] };
+  let h = '<tr><th>#</th>' + PREVIEW_COLS.map(c => `<th>${esc(PREVIEW_LABEL[c] || hdr[c]).replace(/\n/g, ' ')}</th>`).join('') + '</tr>';
+  const body = result.out.map((r, i) => {
+    const bad = new Set(); (issueSkus.get(r[1]) ? [...issueSkus.get(r[1])] : []).forEach(f => (fieldCol[f] || []).forEach(c => bad.add(c)));
+    return `<tr><td class="muted">${i + 1}</td>` + PREVIEW_COLS.map(c => { const v = r[c]; const cls = (bad.has(c) ? 'bad ' : '') + (typeof v === 'number' ? 'num' : ''); return `<td class="${cls}">${v == null ? '' : esc(v)}</td>`; }).join('') + '</tr>';
+  }).join('');
+  $('#preview').innerHTML = `<table><thead>${h}</thead><tbody>${body}</tbody></table>`;
+}
+
+/* ===== 下載 ===== */
+$('#dlErp').onclick = () => {
+  const aoa = ERP.HEADER.concat(result.out);
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = Array.from({ length: 62 }, (_, i) => ({ wch: i === 2 || i === 4 ? 40 : 12 }));
+  const wb = XLSX.utils.book_new();
+  const d = specDate();
+  XLSX.utils.book_append_sheet(wb, ws, `鼎新區(${d || '匯入'})`);
+  XLSX.writeFile(wb, `鼎新品號匯入_${d || 'xxxxxx'}.xlsx`);
+};
+$('#dlBar').onclick = () => {
+  const ws = XLSX.utils.aoa_to_sheet(ERP.barcodeSheet(srcRows));
+  ws['!cols'] = [{ wch: 20 }, { wch: 44 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 12 }, { wch: 20 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '條碼對照表');
+  XLSX.writeFile(wb, `條碼對照表_${specDate() || 'xxxxxx'}.xlsx`);
+};
+$('#cpWx').onclick = async () => {
+  const d = specDate(); const mmdd = d ? d.slice(2) : '';
+  const txt = ERP.wechatText(srcRows, mmdd);
+  try { await navigator.clipboard.writeText(txt); toast('已複製'); } catch (_) { prompt('複製以下文字', txt); }
+};
+
+/* ===== 對照表編輯 ===== */
+function renderSubtabs() {
+  $('#subtabs').innerHTML = Object.entries(TABLE_DEFS).map(([k, d]) => `<button class="subtab ${k === curTable ? 'on' : ''}" data-t="${k}">${d.label}<small>${(tables && tables[k] || []).length}</small></button>`).join('');
+  $('#subtabs').querySelectorAll('.subtab').forEach(b => b.onclick = () => { curTable = b.dataset.t; $('#filter').value = ''; renderGrid(); });
+}
+function renderGrid() {
+  if (!tables) return;
+  renderSubtabs();
+  const def = TABLE_DEFS[curTable], rows = tables[curTable] || [];
+  const q = ERP.norm($('#filter').value);
+  let h = '<tr><th style="width:36px"></th>' + def.cols.map(c => `<th>${c[1]}</th>`).join('') + '</tr>';
+  const body = rows.map((r, i) => {
+    if (q && !def.cols.some(c => ERP.norm(Array.isArray(r[c[0]]) ? r[c[0]].join(' ') : r[c[0]]).includes(q))) return '';
+    return `<tr><td><button class="x" data-del="${i}" title="刪除">×</button></td>` + def.cols.map(c => {
+      if (c[0] === 'aliases') {
+        const al = (r.aliases || []).map((a, j) => `<span class="alias">${esc(a)}<b data-ra="${i}:${j}">×</b></span>`).join('');
+        return `<td>${al}<input type="text" placeholder="＋別名" data-aa="${i}" style="min-width:70px;width:90px"></td>`;
+      }
+      return `<td><input type="text" value="${esc(r[c[0]])}" data-i="${i}" data-f="${c[0]}"></td>`;
+    }).join('') + '</tr>';
+  }).join('');
+  $('#tgrid').innerHTML = `<table><thead>${h}</thead><tbody>${body}</tbody></table>`;
+  $('#tgrid').querySelectorAll('input[data-f]').forEach(inp => inp.onchange = () => {
+    const r = rows[inp.dataset.i], f = inp.dataset.f; let v = inp.value.trim();
+    if (f === 'code' && curTable === 'size' && /^\d+$/.test(v) && !v.startsWith('0')) v = Number(v);
+    if (f === 'code' && curTable === 'category' && /^\d{4}$/.test(v)) v = Number(v);
+    r[f] = v === '' ? null : v; saveTables();
+  });
+  $('#tgrid').querySelectorAll('[data-del]').forEach(b => b.onclick = () => { const r = rows[b.dataset.del]; if (confirm(`刪除「${r.name || r.code}」？`)) { rows.splice(b.dataset.del, 1); saveTables('已刪除'); } });
+  $('#tgrid').querySelectorAll('[data-aa]').forEach(inp => inp.onchange = () => { const v = inp.value.trim(); if (!v) return; const r = rows[inp.dataset.aa]; r.aliases = r.aliases || []; r.aliases.push(v); saveTables('已加別名'); });
+  $('#tgrid').querySelectorAll('[data-ra]').forEach(b => b.onclick = () => { const [i, j] = b.dataset.ra.split(':'); rows[i].aliases.splice(j, 1); saveTables(); });
+}
+$('#filter').oninput = renderGrid;
+$('#addRow').onclick = () => { const o = {}; TABLE_DEFS[curTable].cols.forEach(c => o[c[0]] = c[0] === 'aliases' ? [] : ''); tables[curTable].unshift(o); renderGrid(); $('#tgrid').querySelector('input[data-f]')?.focus(); };
+$('#togglePaste').onclick = () => $('#pasteBox').classList.toggle('hide');
+$('#pasteCancel').onclick = () => $('#pasteBox').classList.add('hide');
+$('#pasteGo').onclick = () => {
+  const def = TABLE_DEFS[curTable];
+  const lines = $('#pasteTa').value.split(/\r?\n/).map(l => l.split('\t')).filter(l => l.some(c => c.trim()));
+  if (!lines.length) return;
+  const first = lines[0].map(x => x.trim());
+  const isHeader = def.cols.some(c => first.includes(c[1]));
+  const data = isHeader ? lines.slice(1) : lines;
+  const old = tables[curTable] || [];
+  const next = data.map(l => { const o = {}; def.cols.forEach((c, i) => { if (c[0] === 'aliases') { const prev = old.find(p => String(p.name) === (l[0] || '').trim()); o.aliases = prev ? (prev.aliases || []) : []; } else { let v = (l[i] || '').trim(); if (curTable === 'size' && c[0] === 'code' && /^\d+$/.test(v) && !v.startsWith('0')) v = Number(v); if (curTable === 'category' && c[0] === 'code' && /^\d{4}$/.test(v)) v = Number(v); o[c[0]] = v === '' ? null : v; } }); return o; }).filter(o => o.name != null || o.code != null);
+  if (!confirm(`用 ${next.length} 列覆蓋「${def.label}」（原 ${old.length} 列）？`)) return;
+  tables[curTable] = next; $('#pasteBox').classList.add('hide'); $('#pasteTa').value = '';
+  saveTables('已覆蓋');
+};
+</script>
+</body>
+</html>
